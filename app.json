@@ -67,7 +67,10 @@
         {
           "photosPermission": "Immersia 360 opens your photo library so you can pick overlay frames.",
           "savePhotosPermission": "Immersia 360 saves the videos you choose to your Photos.",
-          "granularPermissions": ["photo", "video"]
+          "granularPermissions": [
+            "photo",
+            "video"
+          ]
         }
       ],
       [
@@ -84,7 +87,8 @@
           "initialOrientation": "PORTRAIT_UP"
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true

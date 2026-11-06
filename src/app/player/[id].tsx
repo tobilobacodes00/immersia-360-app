@@ -1,17 +1,19 @@
 import { useEvent, useEventListener } from 'expo';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { Pause, Play, Share as ShareIcon, X } from 'lucide-react-native';
+import { Pause, Play, QrCode, Share as ShareIcon, X } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { Modal, Pressable, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import { Directions, Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useCurrentAlbumId } from '@/data/albums';
 import { inCompositions, inOriginals, resolveFile, useTake, useTakes } from '@/data/takes';
+import { useUpload } from '@/data/uploads';
+import { uploadStatusText } from '@/features/sharing/uploadStatus';
 import { shareVideo } from '@/platform/share';
 import { colors, space } from '@/theme';
-import { IconButton, Text } from '@/ui';
+import { Button, IconButton, QrCard, Text } from '@/ui';
 
 const HIDE_CONTROLS_MS = 3000;
 
@@ -24,6 +26,8 @@ export default function PlayerScreen() {
   const router = useRouter();
   const kind = params.kind === 'originals' ? 'originals' : 'videos';
   const take = useTake(params.id);
+  const upload = useUpload(params.id);
+  const [showQr, setShowQr] = useState(false);
   const takes = useTakes(useCurrentAlbumId());
 
   const list = useMemo(() => {
@@ -67,6 +71,7 @@ export default function PlayerScreen() {
             uri={uri}
             onClose={() => router.back()}
             position={index >= 0 ? `${index + 1} of ${list.length}` : ''}
+            onQr={kind === 'videos' && upload?.url ? () => setShowQr(true) : undefined}
           />
         ) : (
           <SafeAreaView style={styles.missing}>
@@ -74,12 +79,29 @@ export default function PlayerScreen() {
             <IconButton icon={X} label="Close" color={colors.overlayText} onPress={() => router.back()} />
           </SafeAreaView>
         )}
+        <Modal visible={showQr} transparent animationType="fade" onRequestClose={() => setShowQr(false)}>
+          <SafeAreaView style={styles.qrModal}>
+            {upload?.url && <QrCard url={upload.url} status={uploadStatusText(upload)} size={240} />}
+            <Button label="Close" kind="secondary" onPress={() => setShowQr(false)} />
+          </SafeAreaView>
+        </Modal>
       </View>
     </GestureDetector>
   );
 }
 
-function Playback({ uri, onClose, position }: { uri: string; onClose: () => void; position: string }) {
+function Playback({
+  uri,
+  onClose,
+  position,
+  onQr,
+}: {
+  uri: string;
+  onClose: () => void;
+  position: string;
+  /** Only for videos that have a guest link. */
+  onQr?: () => void;
+}) {
   const player = useVideoPlayer(uri, (p) => {
     p.loop = true;
     p.timeUpdateEventInterval = 0.25;
@@ -130,12 +152,17 @@ function Playback({ uri, onClose, position }: { uri: string; onClose: () => void
             <Text variant="footnote" tone="overlay">
               {position}
             </Text>
-            <IconButton
-              icon={ShareIcon}
-              label="Share"
-              color={colors.overlayText}
-              onPress={() => void shareVideo(uri)}
-            />
+            <View style={styles.topRight}>
+              {onQr && (
+                <IconButton icon={QrCode} label="Show QR code" color={colors.overlayText} onPress={onQr} />
+              )}
+              <IconButton
+                icon={ShareIcon}
+                label="Share"
+                color={colors.overlayText}
+                onPress={() => void shareVideo(uri)}
+              />
+            </View>
           </View>
           <View style={styles.bottom}>
             <View style={styles.scrubRow}>
@@ -229,6 +256,14 @@ function clock(seconds: number): string {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#000' },
   missing: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: space.lg },
+  topRight: { flexDirection: 'row' },
+  qrModal: {
+    flex: 1,
+    backgroundColor: colors.scrim,
+    justifyContent: 'center',
+    padding: space.xl,
+    gap: space.lg,
+  },
   controls: { ...StyleSheet.absoluteFill, justifyContent: 'space-between' },
   top: {
     flexDirection: 'row',

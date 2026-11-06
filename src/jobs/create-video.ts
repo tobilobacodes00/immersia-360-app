@@ -9,6 +9,10 @@ import { getTake, NOT_MADE, resolveFile, takeFolder, type Take } from '@/data/ta
 import { thumbnailTimeS } from '@/domain/timeline';
 import { composer, type ComposeRequest } from '@/platform/composer';
 import { saveVideoToPhotos } from '@/platform/share';
+import { getSharingConfig } from '@/data/sharing-config';
+
+import { sendBoothEvent } from './hub';
+import { uploadQueue } from './uploads';
 
 /** Error stored on a take whose video the operator cancelled: shown as "not made yet", not as a failure. */
 export const CANCELLED = NOT_MADE;
@@ -131,6 +135,9 @@ class VideoQueue {
         thumbRelative,
         takeId,
       );
+
+      if (getSettings().sharing.enabled && getSharingConfig()) void uploadQueue.share(takeId);
+      sendBoothEvent({ type: 'booth.idle' });
 
       if (getSettings().storage.autoSaveToPhotos) {
         await saveVideoToPhotos(resolveFile(videoRelative).uri, { quiet: true });

@@ -1,13 +1,16 @@
 import { Paths } from 'expo-file-system';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Camera, ChevronDown, Cloud, Images, Layers, Settings as SettingsIcon } from 'lucide-react-native';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useCurrentAlbum } from '@/data/albums';
 import { useSettings } from '@/data/settings-store';
 import { useVideosInProgress } from '@/data/takes';
+import { usePendingUploads } from '@/data/uploads';
+import { useSharingConfig, type SharingConfig } from '@/data/sharing-config';
+import { sharingApi } from '@/platform/sharing-api';
 import { formatBytes } from '@/domain/format';
 import { presetLabel } from '@/features/settings/CameraSection';
 import { IS_EXPO_GO } from '@/platform/runtime';
@@ -23,6 +26,10 @@ export default function Home() {
   const settings = useSettings();
   const album = useCurrentAlbum();
   const busy = useVideosInProgress();
+  const pendingUploads = usePendingUploads();
+  const sharingConfig = useSharingConfig();
+  const sharingOn = settings.sharing.enabled && sharingConfig !== null;
+  const displayConnected = useDisplayConnected(sharingOn ? sharingConfig : null);
   const [free, setFree] = useState(() => Paths.availableDiskSpace);
   useFocusEffect(useCallback(() => setFree(Paths.availableDiskSpace), []));
 
@@ -45,13 +52,37 @@ export default function Home() {
           </Text>
           <ChevronDown size={16} color={colors.textMuted} />
         </Pressable>
-        <Text
-          variant="footnote"
-          tone={free < LOW_SPACE_BYTES ? 'danger' : 'faint'}
-          accessibilityLabel={`${formatBytes(free)} free`}
-        >
-          {formatBytes(free)} free
-        </Text>
+        <View style={styles.status}>
+          {sharingOn && (
+            <Pressable
+              onPress={() => router.push('/sharing')}
+              accessibilityRole="button"
+              accessibilityLabel={displayConnected ? 'Sharing on, display connected' : 'Sharing on'}
+              style={styles.statusItem}
+              hitSlop={8}
+            >
+              <View style={[styles.dot, { backgroundColor: colors.accentText }]} />
+              <Text variant="footnote" tone="faint">
+                Sharing
+              </Text>
+              {displayConnected && (
+                <>
+                  <View style={[styles.dot, { backgroundColor: colors.ok }]} />
+                  <Text variant="footnote" tone="faint">
+                    Display
+                  </Text>
+                </>
+              )}
+            </Pressable>
+          )}
+          <Text
+            variant="footnote"
+            tone={free < LOW_SPACE_BYTES ? 'danger' : 'faint'}
+            accessibilityLabel={`${formatBytes(free)} free`}
+          >
+            {formatBytes(free)} free
+          </Text>
+        </View>
       </View>
 
       <View style={styles.centre}>
@@ -98,13 +129,35 @@ export default function Home() {
           icon={Cloud}
           label="Sharing"
           showLabel
-          disabled
-          onPress={() => {}}
+          badge={pendingUploads}
+          onPress={() => router.push('/sharing')}
           style={styles.barItem}
         />
       </View>
     </SafeAreaView>
   );
+}
+
+/** Whether any paired Display has its screen open right now (checked every 30 s while sharing is on). */
+function useDisplayConnected(config: SharingConfig | null): boolean {
+  const [connected, setConnected] = useState(false);
+  useEffect(() => {
+    if (!config) return;
+    let alive = true;
+    const check = () =>
+      sharingApi.listDisplays(config).then(
+        ({ displays }) => alive && setConnected(displays.some((d) => d.connected)),
+        () => alive && setConnected(false),
+      );
+    const first = setTimeout(check, 0);
+    const timer = setInterval(check, 30_000);
+    return () => {
+      alive = false;
+      clearTimeout(first);
+      clearInterval(timer);
+    };
+  }, [config]);
+  return config !== null && connected;
 }
 
 const styles = StyleSheet.create({
@@ -129,6 +182,9 @@ const styles = StyleSheet.create({
   },
   albumName: { flexShrink: 1 },
   chipPressed: { backgroundColor: colors.surfacePressed },
+  status: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  statusItem: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
+  dot: { width: 8, height: 8, borderRadius: 4 },
   centre: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: space.xs },
   capture: {
     width: CAPTURE_SIZE,

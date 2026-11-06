@@ -80,6 +80,14 @@ function subscribe(listener: () => void) {
   return () => listeners.delete(listener);
 }
 
+/** Called whenever the current album changes; returns the unsubscribe. */
+export function subscribeCurrentAlbum(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
 export function useCurrentAlbumId(): string {
   return useSyncExternalStore(subscribe, getCurrentAlbumId);
 }

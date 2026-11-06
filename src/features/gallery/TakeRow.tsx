@@ -5,7 +5,9 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { resolveFile, type Take } from '@/data/takes';
 import { formatBytes } from '@/domain/format';
+import { daysLeft } from '@/data/uploads';
 import { CANCELLED } from '@/jobs/create-video';
+import type { Upload } from '@/jobs/uploads';
 import { colors, hitSize, radius, space } from '@/theme';
 import { IconButton, Text } from '@/ui';
 
@@ -26,8 +28,24 @@ export function formatTakeDate(ms: number): string {
 
 type Chip = { label: string; tone: 'accent' | 'danger' | 'faint' };
 
-function statusChip(take: Take, tab: GalleryTab): Chip | null {
+function statusChip(take: Take, tab: GalleryTab, upload: Upload | undefined): Chip | null {
   if (tab === 'originals') return null;
+  if (take.status === 'ready' && upload) {
+    switch (upload.status) {
+      case 'online': {
+        const days = daysLeft(upload.expiresAt);
+        return days === 0
+          ? { label: 'Link expired', tone: 'faint' }
+          : { label: days === null ? 'Online' : `Online · ${days} d left`, tone: 'accent' };
+      }
+      case 'uploading':
+        return { label: `Uploading ${Math.round(upload.progress * 100)}%`, tone: 'accent' };
+      case 'queued':
+        return { label: 'Waiting to upload', tone: 'faint' };
+      case 'failed':
+        return { label: 'Upload paused', tone: 'faint' };
+    }
+  }
   switch (take.status) {
     case 'creating':
       return { label: `Creating ${Math.round(take.progress * 100)}%`, tone: 'accent' };
@@ -43,6 +61,7 @@ function statusChip(take: Take, tab: GalleryTab): Chip | null {
 /** One row of the gallery list (the reference's rows): thumbnail, date and size, status, ⋯. */
 export const TakeRow = memo(function TakeRow({
   take,
+  upload,
   tab,
   selecting,
   selected,
@@ -50,6 +69,7 @@ export const TakeRow = memo(function TakeRow({
   onMenu,
 }: {
   take: Take;
+  upload?: Upload;
   tab: GalleryTab;
   selecting: boolean;
   selected: boolean;
@@ -57,7 +77,7 @@ export const TakeRow = memo(function TakeRow({
   onMenu: (take: Take) => void;
 }) {
   const bytes = tab === 'videos' ? take.videoBytes : take.originalBytes;
-  const chip = statusChip(take, tab);
+  const chip = statusChip(take, tab, upload);
   const date = formatTakeDate(take.createdAt);
   const size = bytes ? formatBytes(bytes) : '';
 

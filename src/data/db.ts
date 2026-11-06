@@ -74,6 +74,24 @@ const MIGRATIONS: ((db: SQLiteDatabase) => Promise<void>)[] = [
       );
     `);
   },
+  // v3: uploads for QR sharing. One row per take that is (or is being) shared.
+  async (db) => {
+    await db.execAsync(`
+      CREATE TABLE uploads (
+        take_id TEXT PRIMARY KEY NOT NULL REFERENCES takes(id) ON DELETE CASCADE,
+        share_id TEXT,
+        url TEXT,
+        expires_at INTEGER,
+        -- queued → uploading → online, or failed (retried with backoff)
+        status TEXT NOT NULL DEFAULT 'queued',
+        progress REAL NOT NULL DEFAULT 0,
+        error TEXT,
+        attempts INTEGER NOT NULL DEFAULT 0,
+        next_attempt_at INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL
+      );
+    `);
+  },
 ];
 
 export async function migrate(db: SQLiteDatabase): Promise<void> {

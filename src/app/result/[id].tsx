@@ -7,9 +7,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useSettings } from '@/data/settings-store';
 import { deleteTake, resolveFile, useTake } from '@/data/takes';
+import { useSharingConfig } from '@/data/sharing-config';
+import { useUpload } from '@/data/uploads';
+import { uploadStatusText } from '@/features/sharing/uploadStatus';
+import { uploadQueue } from '@/jobs/uploads';
 import { saveVideoToPhotos, shareVideo } from '@/platform/share';
 import { colors, radius, space } from '@/theme';
-import { Button, Text, VideoLoop } from '@/ui';
+import { Button, QrCard, Text, VideoLoop } from '@/ui';
 
 /**
  * The guest's finished video, playing on a loop, with the ways to take it home. "Next guest" goes back to the
@@ -20,7 +24,11 @@ export default function ResultScreen() {
   const router = useRouter();
   const db = useSQLiteContext();
   const take = useTake(id);
-  const { idleReturnS } = useSettings().booth;
+  const settings = useSettings();
+  const { idleReturnS } = settings.booth;
+  const sharingConfig = useSharingConfig();
+  const upload = useUpload(id);
+  const showQr = settings.sharing.enabled && settings.sharing.showQrAfterTake && sharingConfig !== null;
   const [saved, setSaved] = useState(false);
 
   const nextGuest = useCallback(() => router.replace('/capture'), [router]);
@@ -63,7 +71,12 @@ export default function ResultScreen() {
       {
         text: 'Discard',
         style: 'destructive',
-        onPress: () => void deleteTake(db, id).then(nextGuest),
+        onPress: () =>
+          void uploadQueue
+            .unshare(id)
+            .catch(() => undefined)
+            .then(() => deleteTake(db, id))
+            .then(nextGuest),
       },
     ]);
 
@@ -72,6 +85,17 @@ export default function ResultScreen() {
       <View style={styles.videoFrame}>
         <VideoLoop uri={uri} style={StyleSheet.absoluteFill} />
       </View>
+
+      {showQr &&
+        (upload?.url ? (
+          <QrCard url={upload.url} status={uploadStatusText(upload)} size={110} compact />
+        ) : (
+          <Text variant="footnote" tone="faint" align="center">
+            {upload?.status === 'failed'
+              ? 'Could not get a link yet. It will be retried.'
+              : 'Getting the QR code…'}
+          </Text>
+        ))}
 
       <View style={styles.actions}>
         <Button label="Next guest" size="large" onPress={nextGuest} />
