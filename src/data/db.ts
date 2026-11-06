@@ -53,6 +53,27 @@ const MIGRATIONS: ((db: SQLiteDatabase) => Promise<void>)[] = [
       Date.now(),
     );
   },
+  // v2: the overlay frame and music libraries.
+  async (db) => {
+    await db.execAsync(`
+      CREATE TABLE overlays (
+        id TEXT PRIMARY KEY NOT NULL,
+        name TEXT NOT NULL,
+        file_path TEXT NOT NULL,
+        width INTEGER NOT NULL,
+        height INTEGER NOT NULL,
+        created_at INTEGER NOT NULL
+      );
+      CREATE TABLE tracks (
+        id TEXT PRIMARY KEY NOT NULL,
+        name TEXT NOT NULL,
+        file_path TEXT NOT NULL,
+        duration_s REAL,
+        start_s REAL NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL
+      );
+    `);
+  },
 ];
 
 export async function migrate(db: SQLiteDatabase): Promise<void> {

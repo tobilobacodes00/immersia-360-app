@@ -5,14 +5,16 @@ import * as Haptics from 'expo-haptics';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useIsFocused, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
+import { Image } from 'expo-image';
 import { Flashlight, FlashlightOff, SwitchCamera, X } from 'lucide-react-native';
 import { useEffect, useReducer, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, AppState, Linking, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { getCurrentAlbumId } from '@/data/albums';
+import { useOverlays } from '@/data/look';
 import { getSettings, updateSettings, useSettings } from '@/data/settings-store';
-import { discardClip, saveTake } from '@/data/takes';
+import { discardClip, resolveFile, saveTake } from '@/data/takes';
 import { buildPlan, slowFactor } from '@/domain/timeline';
 import { canAdjustCamera, captureReducer, initialCapture } from '@/features/capture/machine';
 import { videoQueue } from '@/jobs/create-video';
@@ -47,6 +49,7 @@ export default function CaptureScreen() {
   const prefs = settings.camera[position];
   const recording = settings.recording;
   const lenses = useLenses(position);
+  const frame = useOverlays()?.find((o) => o.id === settings.look.overlayId);
 
   const [state, dispatch] = useReducer(captureReducer, initialCapture);
   const [format, setFormat] = useState<CameraFormat | null>(null);
@@ -242,6 +245,17 @@ export default function CaptureScreen() {
         onReady={setFormat}
         onError={(message) => dispatch({ type: 'failed', message })}
       />
+
+      {/* The frame over the live picture, so the operator can line guests up inside it. */}
+      {frame && recording.showFrameOnCamera && (
+        <Image
+          source={{ uri: resolveFile(frame.filePath).uri }}
+          style={[StyleSheet.absoluteFill, styles.framePreview]}
+          contentFit="cover"
+          pointerEvents="none"
+          accessible={false}
+        />
+      )}
 
       {tapToStart && (
         <Pressable
@@ -472,6 +486,7 @@ function errorMessage(error: unknown): string {
 
 const styles = StyleSheet.create({
   black: { flex: 1, backgroundColor: '#000' },
+  framePreview: { opacity: 0.6 },
   overlay: StyleSheet.absoluteFill,
   topBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.sm, paddingTop: space.xs },
   topSide: { flex: 1, flexDirection: 'row', gap: space.xs },
