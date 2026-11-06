@@ -83,3 +83,16 @@ public enum ComposeError: Error, LocalizedError, Equatable {
     }
   }
 }
+
+/// "AVFoundationErrorDomain -11800, underlying NSOSStatusErrorDomain -12902": the codes that say what went
+/// wrong, where the localized text only says "The operation could not be completed".
+func describe(_ error: Error?, stage: String) -> String {
+  guard let error = error as NSError? else { return stage }
+  var parts = ["\(stage): \(error.domain) \(error.code)"]
+  var underlying = error.userInfo[NSUnderlyingErrorKey] as? NSError
+  while let next = underlying {
+    parts.append("underlying \(next.domain) \(next.code)")
+    underlying = next.userInfo[NSUnderlyingErrorKey] as? NSError
+  }
+  return parts.joined(separator: ", ")
+}

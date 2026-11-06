@@ -10,8 +10,13 @@ final class VideoSink {
   private let adaptor: AVAssetWriterInputPixelBufferAdaptor
   private let fps: Int32
   private let music: MusicFeed?
+  /// Which pass this is, for error messages.
+  private let stage: String
 
-  init(url: URL, width: Int, height: Int, fps: Int32, bitrate: Int, keyframeInterval: Int, music: MusicTrack?) throws {
+  init(
+    stage: String, url: URL, width: Int, height: Int, fps: Int32, bitrate: Int, keyframeInterval: Int, music: MusicTrack?
+  ) throws {
+    self.stage = stage
     try? FileManager.default.removeItem(at: url)
     writer = try AVAssetWriter(outputURL: url, fileType: .mp4)
     writer.shouldOptimizeForNetworkUse = true // moov first: the video starts playing before it has downloaded
@@ -60,7 +65,7 @@ final class VideoSink {
       self.music = nil
     }
 
-    guard writer.startWriting() else { throw ComposeError.writerFailed(writer.error?.localizedDescription ?? "start") }
+    guard writer.startWriting() else { throw ComposeError.writerFailed(describe(writer.error, stage: "\(stage) start")) }
     writer.startSession(atSourceTime: .zero)
     try self.music?.start()
   }
@@ -68,7 +73,7 @@ final class VideoSink {
   /// Buffers for rendered frames, sized and formatted for this writer.
   var pool: CVPixelBufferPool {
     get throws {
-      guard let pool = adaptor.pixelBufferPool else { throw ComposeError.writerFailed(writer.error?.localizedDescription ?? "no pool") }
+      guard let pool = adaptor.pixelBufferPool else { throw ComposeError.writerFailed(describe(writer.error, stage: "\(stage) buffers")) }
       return pool
     }
   }
@@ -76,12 +81,12 @@ final class VideoSink {
   /// Appends a frame as output frame `index` (time = index / fps). Waits while the encoder is busy.
   func append(_ buffer: CVPixelBuffer, index: Int, isCancelled: () -> Bool) async throws {
     while !video.isReadyForMoreMediaData {
-      if writer.status == .failed { throw ComposeError.writerFailed(writer.error?.localizedDescription ?? "failed") }
+      if writer.status == .failed { throw ComposeError.writerFailed(describe(writer.error, stage: "\(stage) encoding")) }
       if isCancelled() { throw ComposeError.cancelled }
       try await Task.sleep(nanoseconds: 2_000_000)
     }
     guard adaptor.append(buffer, withPresentationTime: CMTime(value: Int64(index), timescale: fps)) else {
-      throw ComposeError.writerFailed(writer.error?.localizedDescription ?? "append")
+      throw ComposeError.writerFailed(describe(writer.error, stage: "\(stage) frame \(index)"))
     }
   }
 
@@ -91,7 +96,7 @@ final class VideoSink {
     writer.endSession(atSourceTime: CMTime(value: Int64(frames), timescale: fps))
     await writer.finishWriting()
     if writer.status != .completed {
-      throw ComposeError.writerFailed(writer.error?.localizedDescription ?? "finish (\(writer.status.rawValue))")
+      throw ComposeError.writerFailed(describe(writer.error, stage: "\(stage) finish"))
     }
   }
 

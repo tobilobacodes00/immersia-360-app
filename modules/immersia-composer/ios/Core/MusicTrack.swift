@@ -72,7 +72,7 @@ final class MusicTrack {
     output.alwaysCopiesSampleData = false
     guard reader.canAdd(output) else { throw ComposeError.audioUnreadable }
     reader.add(output)
-    guard reader.startReading() else { throw ComposeError.readerFailed(reader.error?.localizedDescription ?? "music") }
+    guard reader.startReading() else { throw ComposeError.readerFailed(describe(reader.error, stage: "music")) }
     self.reader = reader
     return output
   }
