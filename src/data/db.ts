@@ -1,0 +1,64 @@
+import type { SQLiteDatabase } from 'expo-sqlite';
+
+export const DATABASE_NAME = 'immersia360.db';
+
+/** The album every install starts with. It can be renamed, never deleted. */
+export const DEFAULT_ALBUM_ID = 'default';
+
+/**
+ * Ordered migrations. Never edit one that has shipped: add the next. `PRAGMA user_version` records how many
+ * have run, so each runs exactly once, inside a transaction with the version bump.
+ */
+const MIGRATIONS: ((db: SQLiteDatabase) => Promise<void>)[] = [
+  async (db) => {
+    await db.execAsync(`
+      CREATE TABLE albums (
+        id TEXT PRIMARY KEY NOT NULL,
+        name TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+      );
+
+      -- One row per recording. The original file is written and this row inserted before any processing,
+      -- so a crash or a failed render never loses a take.
+      CREATE TABLE takes (
+        id TEXT PRIMARY KEY NOT NULL,
+        album_id TEXT NOT NULL REFERENCES albums(id) ON DELETE CASCADE,
+        created_at INTEGER NOT NULL,
+        camera_position TEXT NOT NULL,
+        lens_name TEXT,
+        width INTEGER NOT NULL,
+        height INTEGER NOT NULL,
+        fps REAL NOT NULL,
+        duration_s REAL NOT NULL,
+        plan_json TEXT NOT NULL,
+        original_path TEXT,
+        original_bytes INTEGER,
+        video_path TEXT,
+        video_bytes INTEGER,
+        thumb_path TEXT,
+        -- recorded → creating → ready, or failed (the original is kept and the video can be retried)
+        status TEXT NOT NULL DEFAULT 'recorded',
+        progress REAL NOT NULL DEFAULT 0,
+        error TEXT
+      );
+      CREATE INDEX takes_album_created ON takes (album_id, created_at DESC);
+    `);
+    await db.runAsync(
+      'INSERT INTO albums (id, name, created_at) VALUES (?, ?, ?)',
+      DEFAULT_ALBUM_ID,
+      'Default',
+      Date.now(),
+    );
+  },
+];
+
+export async function migrate(db: SQLiteDatabase): Promise<void> {
+  await db.execAsync('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
+  const row = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
+  for (let version = row?.user_version ?? 0; version < MIGRATIONS.length; version++) {
+    await db.withExclusiveTransactionAsync(async (tx) => {
+      await MIGRATIONS[version]!(tx);
+      await tx.execAsync(`PRAGMA user_version = ${version + 1}`);
+    });
+  }
+}
