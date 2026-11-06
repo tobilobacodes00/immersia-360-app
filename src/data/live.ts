@@ -1,29 +1,32 @@
 import { addDatabaseChangeListener, useSQLiteContext, type SQLiteDatabase } from 'expo-sqlite';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useState } from 'react';
 
 /**
  * Runs `query` now and again whenever one of `tables` changes, from any screen or background job.
  * Uses SQLite's own change hook (the database is opened with `enableChangeListener`), so writers never need
  * to remember to notify readers. Results from a stale run are dropped.
+ *
+ * @param key identifies the query's inputs (for example the album id): the query runs again when it changes.
  */
 export function useLiveQuery<T>(
   tables: readonly string[],
+  key: string,
   query: (db: SQLiteDatabase) => Promise<T>,
-  deps: unknown[],
-) {
+): T | undefined {
   const db = useSQLiteContext();
   const [data, setData] = useState<T | undefined>(undefined);
-  const run = useRef(0);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const stableQuery = useCallback(query, deps);
+  const runQuery = useEffectEvent((database: SQLiteDatabase) => query(database));
   const tableKey = tables.join(',');
 
   useEffect(() => {
     let alive = true;
+    let run = 0;
     const refresh = () => {
-      const id = ++run.current;
-      stableQuery(db).then(
-        (result) => alive && id === run.current && setData(result),
+      const id = ++run;
+      runQuery(db).then(
+        (result) => {
+          if (alive && id === run) setData(result);
+        },
         (error: unknown) => console.warn('[live query]', error),
       );
     };
@@ -36,7 +39,7 @@ export function useLiveQuery<T>(
       alive = false;
       subscription.remove();
     };
-  }, [db, stableQuery, tableKey]);
+  }, [db, tableKey, key]);
 
   return data;
 }

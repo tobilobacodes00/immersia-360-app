@@ -1,5 +1,10 @@
+/* eslint-disable react-hooks/refs --
+ * The gesture callbacks below read refs, which is only allowed outside render. They run on touch events
+ * (runOnJS), never during render, but the compiler cannot tell that through the gesture builder. The refs hold
+ * the drag origin and the latest props, so a drag that re-renders its parent keeps working.
+ */
 import * as Haptics from 'expo-haptics';
-import { useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
@@ -35,7 +40,9 @@ export function TimelineStrip({
   const [width, setWidth] = useState(0);
   const drag = useRef<{ mode: DragMode; from: SlowmoWindow } | null>(null);
   const latest = useRef({ window, recordS, onChange, width });
-  latest.current = { window, recordS, onChange, width };
+  useLayoutEffect(() => {
+    latest.current = { window, recordS, onChange, width };
+  });
 
   const toSeconds = (x: number) => (x / Math.max(1, latest.current.width)) * latest.current.recordS;
 

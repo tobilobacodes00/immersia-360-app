@@ -85,7 +85,7 @@ export function useCurrentAlbumId(): string {
 
 /** All albums, kept up to date. */
 export function useAlbums(): Album[] | undefined {
-  return useLiveQuery(['albums', 'takes'], listAlbums, []);
+  return useLiveQuery(['albums', 'takes'], 'all', listAlbums);
 }
 
 /** The current album. Falls back to Default if the stored one no longer exists. */

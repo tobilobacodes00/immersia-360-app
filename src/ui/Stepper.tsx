@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import { Minus, Plus, type LucideIcon } from 'lucide-react-native';
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { colors, hitSize, radius } from '@/theme';
@@ -32,7 +32,9 @@ export function Stepper({
 }) {
   // The repeat timer reads the latest value and limits, not the ones from when the press began.
   const latest = useRef({ value, min, max, step, onChange });
-  latest.current = { value, min, max, step, onChange };
+  useLayoutEffect(() => {
+    latest.current = { value, min, max, step, onChange };
+  });
   const repeat = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
   const stop = () => {
