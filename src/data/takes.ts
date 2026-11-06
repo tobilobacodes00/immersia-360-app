@@ -187,3 +187,84 @@ export async function deleteTake(db: SQLiteDatabase, id: string): Promise<void> 
   }
   await db.runAsync('DELETE FROM takes WHERE id = ?', id);
 }
+
+function deleteRelative(relativePath: string | null) {
+  if (!relativePath) return;
+  try {
+    const file = resolveFile(relativePath);
+    if (file.exists) file.delete();
+  } catch {
+    // already gone
+  }
+}
+
+/** Status of a take whose video was cancelled or deleted while its original is kept: "not made". */
+export const NOT_MADE = 'cancelled';
+
+/**
+ * Deletes a take's video (and thumbnail). The take stays, as an original, if its original was kept; otherwise
+ * nothing is left of it and the whole take goes.
+ */
+export async function deleteVideo(db: SQLiteDatabase, take: Take): Promise<void> {
+  if (!take.originalPath) return deleteTake(db, take.id);
+  deleteRelative(take.videoPath);
+  deleteRelative(take.thumbPath);
+  await db.runAsync(
+    `UPDATE takes SET video_path = NULL, video_bytes = NULL, thumb_path = NULL, status = 'failed', error = ?, progress = 0
+     WHERE id = ?`,
+    NOT_MADE,
+    take.id,
+  );
+}
+
+/** Deletes a take's original clip. The take stays while its video exists. */
+export async function deleteOriginal(db: SQLiteDatabase, take: Take): Promise<void> {
+  if (!take.videoPath) return deleteTake(db, take.id);
+  deleteRelative(take.originalPath);
+  await db.runAsync('UPDATE takes SET original_path = NULL, original_bytes = NULL WHERE id = ?', take.id);
+}
+
+/**
+ * Rebuilds a take's recipe from the current settings (slow motion, reverse, frame, music, size) and queues it.
+ * The frame rate and length stay the take's own: they are facts of the recording.
+ */
+export async function remakeWithSettings(db: SQLiteDatabase, take: Take, settings: Settings): Promise<void> {
+  const recipe: Recipe = {
+    plan: buildPlan(settings.recording, take.fps, take.durationS),
+    overlayId: settings.look.overlayId,
+    trackId: settings.look.trackId,
+    outputSize: settings.output.size,
+    mirror: take.position === 'front' && settings.camera.front.mirror,
+  };
+  await db.runAsync(
+    `UPDATE takes SET recipe_json = ?, status = 'recorded', progress = 0, error = NULL WHERE id = ?`,
+    JSON.stringify(recipe),
+    take.id,
+  );
+}
+
+/** Which tab a take shows in. A take can be in both. */
+export function inCompositions(take: Take): boolean {
+  return (
+    take.videoPath !== null ||
+    take.status === 'creating' ||
+    take.status === 'recorded' ||
+    (take.status === 'failed' && take.error !== NOT_MADE)
+  );
+}
+
+export function inOriginals(take: Take): boolean {
+  return take.originalPath !== null;
+}
+
+/** How many videos are waiting or being made, in every album: the Gallery button's badge. */
+export function useVideosInProgress(): number {
+  return (
+    useLiveQuery(['takes'], 'in-progress', async (db) => {
+      const row = await db.getFirstAsync<{ n: number }>(
+        `SELECT COUNT(*) AS n FROM takes WHERE status IN ('recorded', 'creating')`,
+      );
+      return row?.n ?? 0;
+    }) ?? 0
+  );
+}
