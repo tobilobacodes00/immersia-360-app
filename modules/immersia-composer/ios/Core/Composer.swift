@@ -16,8 +16,13 @@ import ImageIO
 public final class Composer: @unchecked Sendable {
   /// Frames held in memory per reverse window (half a second): about 47 MB at 1080 × 1920 in YUV.
   static let reverseWindow = 15
-  /// The temporary forward video is a working copy: high bitrate so the second encode loses nothing visible.
-  static let intermediateBitrate = 40_000_000
+  /// The temporary forward video is a working copy, encoded richly so the second encode loses nothing visible:
+  /// about 0.6 bits per pixel per frame (37 Mbps at 1080 × 1920 × 30), capped well inside H.264 levels, and
+  /// never below the final bitrate.
+  static func intermediateBitrate(_ request: ComposeRequest) -> Int {
+    let rich = Double(request.width * request.height) * Double(request.outputFps) * 0.6
+    return max(request.bitrate, min(60_000_000, Int(rich)))
+  }
 
   private let lock = NSLock()
   private var cancelled = false
@@ -61,20 +66,20 @@ public final class Composer: @unchecked Sendable {
 
       if request.reverse {
         let forward = try VideoSink(
-          url: temporary, width: request.width, height: request.height, fps: request.outputFps,
-          bitrate: max(request.bitrate * 3, Self.intermediateBitrate), keyframeInterval: Self.reverseWindow, music: nil)
+          stage: "forward", url: temporary, width: request.width, height: request.height, fps: request.outputFps,
+          bitrate: Self.intermediateBitrate(request), keyframeInterval: Self.reverseWindow, music: nil)
         try await renderForward(timeline, frames: frames, request: request, renderer: renderer, into: forward) {
           progress($0 * 0.45)
         }
         let final = try VideoSink(
-          url: request.output, width: request.width, height: request.height, fps: request.outputFps,
+          stage: "final", url: request.output, width: request.width, height: request.height, fps: request.outputFps,
           bitrate: request.bitrate, keyframeInterval: Int(request.outputFps), music: music)
         try await writeBoomerang(from: temporary, frames: frames, fps: request.outputFps, renderer: renderer, into: final) {
           progress(0.45 + $0 * 0.55)
         }
       } else {
         let final = try VideoSink(
-          url: request.output, width: request.width, height: request.height, fps: request.outputFps,
+          stage: "final", url: request.output, width: request.width, height: request.height, fps: request.outputFps,
           bitrate: request.bitrate, keyframeInterval: Int(request.outputFps), music: music)
         try await renderForward(timeline, frames: frames, request: request, renderer: renderer, into: final, progress: progress)
       }
@@ -102,7 +107,7 @@ public final class Composer: @unchecked Sendable {
       output.alwaysCopiesSampleData = false
       guard reader.canAdd(output) else { throw ComposeError.readerFailed("cannot read the video track") }
       reader.add(output)
-      guard reader.startReading() else { throw ComposeError.readerFailed(reader.error?.localizedDescription ?? "start") }
+      guard reader.startReading() else { throw ComposeError.readerFailed(describe(reader.error, stage: "reading start")) }
       defer { reader.cancelReading() }
 
       let pool = try sink.pool
@@ -123,7 +128,7 @@ public final class Composer: @unchecked Sendable {
         }
         last = buffer
       }
-      if reader.status == .failed { throw ComposeError.readerFailed(reader.error?.localizedDescription ?? "read") }
+      if reader.status == .failed { throw ComposeError.readerFailed(describe(reader.error, stage: "reading")) }
 
       // The clip can end a frame or two before the plan does (rounding at the end): hold the last frame.
       if let last {
@@ -202,7 +207,7 @@ public final class Composer: @unchecked Sendable {
     output.alwaysCopiesSampleData = copies
     guard reader.canAdd(output) else { throw ComposeError.readerFailed("cannot read the forward video") }
     reader.add(output)
-    guard reader.startReading() else { throw ComposeError.readerFailed(reader.error?.localizedDescription ?? "start") }
+    guard reader.startReading() else { throw ComposeError.readerFailed(describe(reader.error, stage: "reading start")) }
     defer { reader.cancelReading() }
 
     while let sample = output.copyNextSampleBuffer() {
@@ -211,7 +216,7 @@ public final class Composer: @unchecked Sendable {
       let index = Int((CMSampleBufferGetPresentationTimeStamp(sample).seconds * Double(fps)).rounded())
       if range.contains(index) { try await body(index, buffer) }
     }
-    if reader.status == .failed { throw ComposeError.readerFailed(reader.error?.localizedDescription ?? "read") }
+    if reader.status == .failed { throw ComposeError.readerFailed(describe(reader.error, stage: "reading")) }
   }
 }
 
