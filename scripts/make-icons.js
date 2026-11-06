@@ -46,8 +46,20 @@ render(mark({ bg: INK, orbit: COBALT, figure: PAPER, camera: PAPER }), 1024, 'ic
 // Splash: the mark alone on the ink splash background.
 render(mark({ bg: null, orbit: COBALT, figure: PAPER, camera: PAPER, scale: 0.9 }), 1024, 'splash-icon.png');
 // Android adaptive icon: foreground inside the 66% safe zone, solid background, monochrome for themed icons.
-render(mark({ bg: null, orbit: COBALT, figure: PAPER, camera: PAPER, scale: 0.62 }), 1024, 'android-icon-foreground.png');
-render(`<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024"><rect width="1024" height="1024" fill="${INK}"/></svg>`, 1024, 'android-icon-background.png');
-render(mark({ bg: null, orbit: '#ffffff', figure: '#ffffff', camera: '#ffffff', scale: 0.62 }), 1024, 'android-icon-monochrome.png');
+render(
+  mark({ bg: null, orbit: COBALT, figure: PAPER, camera: PAPER, scale: 0.62 }),
+  1024,
+  'android-icon-foreground.png',
+);
+render(
+  `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024"><rect width="1024" height="1024" fill="${INK}"/></svg>`,
+  1024,
+  'android-icon-background.png',
+);
+render(
+  mark({ bg: null, orbit: '#ffffff', figure: '#ffffff', camera: '#ffffff', scale: 0.62 }),
+  1024,
+  'android-icon-monochrome.png',
+);
 // A preview to look at.
 render(mark({ bg: INK, orbit: COBALT, figure: PAPER, camera: PAPER }), 256, 'preview-256.png');
