@@ -67,7 +67,8 @@ public final class Composer: @unchecked Sendable {
       if request.reverse {
         let forward = try VideoSink(
           stage: "forward", url: temporary, width: request.width, height: request.height, fps: request.outputFps,
-          bitrate: Self.intermediateBitrate(request), keyframeInterval: Self.reverseWindow, music: nil)
+          bitrate: Self.intermediateBitrate(request), keyframeInterval: Self.reverseWindow, music: nil,
+          allowFrameReordering: false)
         try await renderForward(timeline, frames: frames, request: request, renderer: renderer, into: forward) {
           progress($0 * 0.45)
         }
@@ -157,8 +158,12 @@ public final class Composer: @unchecked Sendable {
       guard let track = try await asset.loadTracks(withMediaType: .video).first else { throw ComposeError.noVideoTrack }
       let total = Double(frames * 2)
 
-      // Forward half, in order.
+      // Forward half, in order. A frame that would not move time forward (a decoder repeat) is skipped:
+      // the writer refuses timestamps that do not increase.
+      var lastForward = -1
       try await readFrames(track: track, asset: asset, range: 0..<frames, fps: fps) { index, buffer in
+        guard index > lastForward else { return }
+        lastForward = index
         try await sink.append(renderer.copy(buffer, into: pool), index: index, isCancelled: { isCancelled })
         progress(Double(index + 1) / total)
       }
@@ -173,7 +178,11 @@ public final class Composer: @unchecked Sendable {
         try await readFrames(track: track, asset: asset, range: start..<end, fps: fps, copies: true) { index, buffer in
           window.append((index, buffer))
         }
-        for (index, buffer) in window.reversed() {
+        // Sorted by frame number, newest first, one buffer per number: the order must never depend on the
+        // order the decoder hands frames back in.
+        var seen = Set<Int>()
+        let backwards = window.sorted { $0.0 > $1.0 }.filter { seen.insert($0.0).inserted }
+        for (index, buffer) in backwards {
           let outputIndex = frames + (frames - 1 - index)
           try await sink.append(renderer.copy(buffer, into: pool), index: outputIndex, isCancelled: { isCancelled })
           progress(Double(outputIndex + 1) / total)
