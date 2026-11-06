@@ -1,5 +1,5 @@
-// The same text the app shows in Settings › Help: one source, so the App Store links and the app never differ.
-import { PRIVACY, TERMS, type LegalDoc } from '../../../src/content/legal';
+// The same text the app shows in Settings › Help (shared/legal.ts): the App Store links and the app never differ.
+import { PRIVACY, TERMS, type LegalDoc } from '../../../shared/legal';
 import { escapeHtml, htmlResponse, nonce } from '../http';
 
 import { page } from './layout';
