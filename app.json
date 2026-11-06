@@ -78,7 +78,13 @@
           "microphonePermission": false
         }
       ],
-      ["expo-screen-orientation", { "initialOrientation": "PORTRAIT_UP" }]
+      [
+        "expo-screen-orientation",
+        {
+          "initialOrientation": "PORTRAIT_UP"
+        }
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true
