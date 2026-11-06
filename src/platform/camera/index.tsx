@@ -8,7 +8,13 @@ import type { Lens } from './devices';
 import type { BoothCameraHandle, BoothCameraProps } from './types';
 
 export type { Lens } from './devices';
-export type { BoothCameraHandle, BoothCameraProps, CameraFormat, RecordedClip } from './types';
+export type {
+  BoothCameraHandle,
+  BoothCameraProps,
+  CameraFormat,
+  CameraPosition,
+  RecordedClip,
+} from './types';
 
 type CameraComponent = ComponentType<BoothCameraProps & RefAttributes<BoothCameraHandle>>;
 

@@ -447,7 +447,7 @@ function errorMessage(error: unknown): string {
 
 const styles = StyleSheet.create({
   black: { flex: 1, backgroundColor: '#000' },
-  overlay: { ...StyleSheet.absoluteFillObject },
+  overlay: StyleSheet.absoluteFill,
   topBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.sm, paddingTop: space.xs },
   topSide: { flex: 1, flexDirection: 'row', gap: space.xs },
   topRight: { justifyContent: 'flex-end' },
