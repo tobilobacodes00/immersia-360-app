@@ -123,7 +123,7 @@ final class ComposerTests: XCTestCase {
 
   func testProgressRisesToOne() async throws {
     let input = try await Fixtures.indexClip(frames: 960)
-    let seen = Progress()
+    let seen = ProgressLog()
     _ = try await Composer().compose(request(input: input, reverse: true)) { seen.record($0) }
     XCTAssertTrue(seen.isMonotonic)
     XCTAssertEqual(seen.last, 1)
@@ -151,7 +151,7 @@ final class ComposerTests: XCTestCase {
   }
 }
 
-private final class Progress: @unchecked Sendable {
+private final class ProgressLog: @unchecked Sendable {
   private let lock = NSLock()
   private var values: [Double] = []
 

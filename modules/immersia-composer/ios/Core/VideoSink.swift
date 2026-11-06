@@ -62,7 +62,7 @@ final class VideoSink {
 
     guard writer.startWriting() else { throw ComposeError.writerFailed(writer.error?.localizedDescription ?? "start") }
     writer.startSession(atSourceTime: .zero)
-    try music?.start()
+    try self.music?.start()
   }
 
   /// Buffers for rendered frames, sized and formatted for this writer.
@@ -108,6 +108,7 @@ private final class MusicFeed: @unchecked Sendable {
   private let queue = DispatchQueue(label: "immersia.composer.music")
   private let done = DispatchGroup()
   private var stopped = false
+  private var finishedFeeding = false
 
   init(track: MusicTrack, input: AVAssetWriterInput) {
     self.track = track
@@ -117,13 +118,13 @@ private final class MusicFeed: @unchecked Sendable {
   func start() throws {
     let output = try track.startReading()
     done.enter()
-    var finished = false
+    // Runs on `queue` only, so the flags need no lock.
     input.requestMediaDataWhenReady(on: queue) { [self] in
-      while input.isReadyForMoreMediaData && !finished {
+      while input.isReadyForMoreMediaData && !finishedFeeding {
         if !stopped, let sample = output.copyNextSampleBuffer() {
           input.append(sample)
         } else {
-          finished = true
+          finishedFeeding = true
           input.markAsFinished()
           done.leave()
         }

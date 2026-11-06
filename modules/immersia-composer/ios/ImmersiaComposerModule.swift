@@ -127,20 +127,28 @@ private final class ProgressThrottle: @unchecked Sendable {
   }
 }
 
+/// Holds the background task id where the expiration handler can reach it.
+private final class BackgroundTaskBox: @unchecked Sendable {
+  var id: UIBackgroundTaskIdentifier = .invalid
+}
+
 private enum BackgroundTask {
-  static func begin() async -> UIBackgroundTaskIdentifier {
+  static func begin() async -> BackgroundTaskBox {
     await MainActor.run {
-      var id = UIBackgroundTaskIdentifier.invalid
-      id = UIApplication.shared.beginBackgroundTask(withName: "Immersia video") {
-        UIApplication.shared.endBackgroundTask(id)
-        id = .invalid
+      let box = BackgroundTaskBox()
+      box.id = UIApplication.shared.beginBackgroundTask(withName: "Immersia video") {
+        UIApplication.shared.endBackgroundTask(box.id)
+        box.id = .invalid
       }
-      return id
+      return box
     }
   }
 
-  static func end(_ id: UIBackgroundTaskIdentifier) {
-    guard id != .invalid else { return }
-    DispatchQueue.main.async { UIApplication.shared.endBackgroundTask(id) }
+  static func end(_ box: BackgroundTaskBox) {
+    DispatchQueue.main.async {
+      guard box.id != .invalid else { return }
+      UIApplication.shared.endBackgroundTask(box.id)
+      box.id = .invalid
+    }
   }
 }

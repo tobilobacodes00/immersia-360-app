@@ -1,4 +1,4 @@
-import { requireOptionalNativeModule, type EventEmitter } from 'expo';
+import { requireOptionalNativeModule } from 'expo';
 import { Platform } from 'react-native';
 
 import { IS_EXPO_GO } from '@/platform/runtime';
@@ -11,13 +11,12 @@ export type { ComposeRequest, ComposeResult, Composer } from './types';
 export type ThermalState = 'nominal' | 'fair' | 'serious' | 'critical';
 
 type ProgressEvent = { jobId: string; fraction: number };
-type Events = { onProgress: (event: ProgressEvent) => void };
 
 type NativeComposer = {
   compose(request: ComposeRequest): Promise<{ durationS: number; bytes: number }>;
   cancel(jobId: string): void;
   thermalState(): ThermalState;
-  addListener: EventEmitter<Events>['addListener'];
+  addListener(event: 'onProgress', listener: (event: ProgressEvent) => void): { remove(): void };
 };
 
 // The engine is the local Expo module in modules/immersia-composer (iOS first). Expo Go and Android
