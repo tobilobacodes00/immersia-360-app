@@ -14,7 +14,8 @@ final class VideoSink {
   private let stage: String
 
   init(
-    stage: String, url: URL, width: Int, height: Int, fps: Int32, bitrate: Int, keyframeInterval: Int, music: MusicTrack?
+    stage: String, url: URL, width: Int, height: Int, fps: Int32, bitrate: Int, keyframeInterval: Int, music: MusicTrack?,
+    allowFrameReordering: Bool = true
   ) throws {
     self.stage = stage
     try? FileManager.default.removeItem(at: url)
@@ -38,7 +39,7 @@ final class VideoSink {
           AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
           AVVideoExpectedSourceFrameRateKey: fps,
           AVVideoMaxKeyFrameIntervalKey: keyframeInterval,
-          AVVideoAllowFrameReorderingKey: true,
+          AVVideoAllowFrameReorderingKey: allowFrameReordering,
         ],
       ]
     )
