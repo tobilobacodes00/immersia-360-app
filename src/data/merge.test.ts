@@ -30,7 +30,7 @@ describe('mergeChanges', () => {
 
   it('replaces values that became null or came back from null', () => {
     expect(mergeChanges(base, { ...base, preset: null }, base).preset).toBeNull();
-    const fromNull = { ...base, preset: null };
+    const fromNull: typeof base = { ...base, preset: null };
     expect(mergeChanges(fromNull, { ...fromNull, preset: { w: 1280, fps: 60 } }, fromNull).preset).toEqual({
       w: 1280,
       fps: 60,
