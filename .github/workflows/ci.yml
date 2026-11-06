@@ -42,3 +42,21 @@ jobs:
       - run: swift --version
       # Builds Core/ as a Swift package and runs its tests against synthetic clips (see Tests/).
       - run: swift test
+
+  worker:
+    name: Sharing server (Worker)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: worker/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx vitest run
