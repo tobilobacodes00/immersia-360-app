@@ -25,6 +25,12 @@ final class FrameRenderer {
     }
   }
 
+  /// Redraws an already finished frame (the reverse pass) into one of the writer's own buffers, so the encoder
+  /// always receives buffers it made: same format, size and stride, whatever the decoder handed back.
+  func copy(_ source: CVPixelBuffer, into pool: CVPixelBufferPool) throws -> CVPixelBuffer {
+    try draw(CIImage(cvPixelBuffer: source), into: pool)
+  }
+
   func render(
     _ source: CVPixelBuffer,
     orientation: CGImagePropertyOrientation,
@@ -37,7 +43,10 @@ final class FrameRenderer {
       .transformed(by: FrameMath.fill(image.extent, into: size))
       .cropped(to: CGRect(origin: .zero, size: size))
     if let overlay { image = overlay.composited(over: image) }
+    return try draw(image, into: pool)
+  }
 
+  private func draw(_ image: CIImage, into pool: CVPixelBufferPool) throws -> CVPixelBuffer {
     var output: CVPixelBuffer?
     let status = CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, pool, &output)
     guard status == kCVReturnSuccess, let output else {

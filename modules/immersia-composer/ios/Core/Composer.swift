@@ -69,7 +69,7 @@ public final class Composer: @unchecked Sendable {
         let final = try VideoSink(
           url: request.output, width: request.width, height: request.height, fps: request.outputFps,
           bitrate: request.bitrate, keyframeInterval: Int(request.outputFps), music: music)
-        try await writeBoomerang(from: temporary, frames: frames, fps: request.outputFps, into: final) {
+        try await writeBoomerang(from: temporary, frames: frames, fps: request.outputFps, renderer: renderer, into: final) {
           progress(0.45 + $0 * 0.55)
         }
       } else {
@@ -143,16 +143,18 @@ public final class Composer: @unchecked Sendable {
   // MARK: Forward then backwards
 
   private func writeBoomerang(
-    from forward: URL, frames: Int, fps: Int32, into sink: VideoSink, progress: (Double) -> Void
+    from forward: URL, frames: Int, fps: Int32, renderer: FrameRenderer, into sink: VideoSink,
+    progress: (Double) -> Void
   ) async throws {
     do {
+      let pool = try sink.pool
       let asset = AVURLAsset(url: forward)
       guard let track = try await asset.loadTracks(withMediaType: .video).first else { throw ComposeError.noVideoTrack }
       let total = Double(frames * 2)
 
       // Forward half, in order.
       try await readFrames(track: track, asset: asset, range: 0..<frames, fps: fps) { index, buffer in
-        try await sink.append(buffer, index: index, isCancelled: { isCancelled })
+        try await sink.append(renderer.copy(buffer, into: pool), index: index, isCancelled: { isCancelled })
         progress(Double(index + 1) / total)
       }
 
@@ -168,7 +170,7 @@ public final class Composer: @unchecked Sendable {
         }
         for (index, buffer) in window.reversed() {
           let outputIndex = frames + (frames - 1 - index)
-          try await sink.append(buffer, index: outputIndex, isCancelled: { isCancelled })
+          try await sink.append(renderer.copy(buffer, into: pool), index: outputIndex, isCancelled: { isCancelled })
           progress(Double(outputIndex + 1) / total)
         }
         end = start
