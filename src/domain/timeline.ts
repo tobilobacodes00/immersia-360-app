@@ -121,3 +121,17 @@ export function roundTenth(value: number): number {
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
+
+/**
+ * A good moment for the thumbnail, in the final video's time: the middle of the slow-motion part (the
+ * best-looking frame of a spin), or one second in when there is none.
+ */
+export function thumbnailTimeS(plan: Plan): number {
+  let t = 0;
+  for (const s of plan.segments) {
+    const length = (s.srcEndS - s.srcStartS) * s.stretch;
+    if (s.stretch > 1) return t + length / 2;
+    t += length;
+  }
+  return Math.min(1, plan.forwardS / 2);
+}

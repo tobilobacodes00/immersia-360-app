@@ -7,4 +7,5 @@ export { Segmented, type SegmentOption } from './Segmented';
 export { Stepper } from './Stepper';
 export { Text, type TextTone, type TextVariant } from './Text';
 export { TimelineStrip } from './TimelineStrip';
+export { VideoLoop } from './VideoLoop';
 export { Toggle } from './Toggle';

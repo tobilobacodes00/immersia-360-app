@@ -1,4 +1,12 @@
-import { buildPlan, finalLengthS, fitWindow, formatLength, roundTenth, slowFactor } from './timeline';
+import {
+  buildPlan,
+  finalLengthS,
+  fitWindow,
+  formatLength,
+  roundTenth,
+  slowFactor,
+  thumbnailTimeS,
+} from './timeline';
 
 // The reference app's own readout for these settings: "Total duration: 0:46 @ 60fps, 0:58 @ 120fps, 1:22 @ 240fps".
 const reference = { recordS: 20, slowmoStartS: 8.8, slowmoDurationS: 3, reverse: true };
@@ -138,4 +146,16 @@ describe('formatLength', () => {
     [725, '12:05'],
     [-3, '0:00'],
   ])('%d s → %s', (seconds, shown) => expect(formatLength(seconds)).toBe(shown));
+});
+
+describe('thumbnailTimeS', () => {
+  it('picks the middle of the slow motion, in output time', () => {
+    // 8.8 s normal, then 3 s at 8x = 24 s: the middle is 8.8 + 12.
+    expect(thumbnailTimeS(buildPlan(reference, 240))).toBeCloseTo(20.8, 9);
+  });
+
+  it('uses one second in without slow motion, or the middle of a very short video', () => {
+    expect(thumbnailTimeS(buildPlan(reference, 30))).toBe(1);
+    expect(thumbnailTimeS(buildPlan({ ...reference, recordS: 1.5 }, 30))).toBe(0.75);
+  });
 });

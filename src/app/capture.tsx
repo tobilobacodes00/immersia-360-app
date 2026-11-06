@@ -15,6 +15,7 @@ import { getSettings, updateSettings, useSettings } from '@/data/settings-store'
 import { discardClip, saveTake } from '@/data/takes';
 import { buildPlan, slowFactor } from '@/domain/timeline';
 import { canAdjustCamera, captureReducer, initialCapture } from '@/features/capture/machine';
+import { videoQueue } from '@/jobs/create-video';
 import {
   BoothCamera,
   useLenses,
@@ -142,15 +143,21 @@ export default function CaptureScreen() {
     };
   }, [startedAt]);
 
-  // ---- After saving ----
+  // ---- No new video is started while the camera records ----
+  const busy = state.phase === 'starting' || state.phase === 'recording' || state.phase === 'stopping';
   useEffect(() => {
-    if (state.phase !== 'saved') return;
-    const timer = setTimeout(() => {
-      setElapsedS(0);
-      dispatch({ type: 'reset' });
-    }, 1400);
-    return () => clearTimeout(timer);
-  }, [state.phase]);
+    videoQueue.hold(busy);
+  }, [busy]);
+  useEffect(() => () => videoQueue.hold(false), []);
+
+  // ---- After saving: make the video and show it ----
+  const savedId = state.phase === 'saved' ? state.takeId : null;
+  useEffect(() => {
+    if (!savedId) return;
+    videoQueue.hold(false);
+    videoQueue.enqueue(savedId);
+    router.replace({ pathname: '/creating/[id]', params: { id: savedId } });
+  }, [savedId, router]);
 
   // ---- Controls ----
   const trigger = () => {

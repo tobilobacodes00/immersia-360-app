@@ -2,6 +2,8 @@ import { randomUUID } from 'expo-crypto';
 import { Directory, File, Paths } from 'expo-file-system';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
+import { useLiveQuery } from './live';
+
 import type { Settings } from '@/domain/settings';
 import { buildPlan, type Plan } from '@/domain/timeline';
 import type { CameraPosition, RecordedClip } from '@/platform/camera';
@@ -163,4 +165,25 @@ export function discardClip(clip: RecordedClip): void {
   } catch {
     // Already gone, or in a temporary folder iOS clears anyway.
   }
+}
+
+/** One take, kept up to date as its video is made. `null` once it no longer exists. */
+export function useTake(id: string): Take | null | undefined {
+  return useLiveQuery(['takes'], id, (db) => getTake(db, id));
+}
+
+/** The takes of one album, newest first, kept up to date. */
+export function useTakes(albumId: string): Take[] | undefined {
+  return useLiveQuery(['takes'], albumId, (db) => listTakes(db, albumId));
+}
+
+/** Deletes a take's files and its row. */
+export async function deleteTake(db: SQLiteDatabase, id: string): Promise<void> {
+  const folder = new Directory(Paths.document, takeFolder(id));
+  try {
+    if (folder.exists) folder.delete();
+  } catch {
+    // Files already gone: still remove the row so the gallery does not show a dead take.
+  }
+  await db.runAsync('DELETE FROM takes WHERE id = ?', id);
 }
