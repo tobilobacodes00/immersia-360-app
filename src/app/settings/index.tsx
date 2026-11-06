@@ -11,6 +11,7 @@ import { IDLE_RETURN_CHOICES, type Settings } from '@/domain/settings';
 import { CameraSection } from '@/features/settings/CameraSection';
 import { useSettingsDraft } from '@/features/settings/draft';
 import { RecordingSection } from '@/features/settings/RecordingSection';
+import { useLenses, type Lens } from '@/platform/camera';
 import { EXPO_GO_CAMERA_FPS, IS_EXPO_GO } from '@/platform/runtime';
 import { colors, space } from '@/theme';
 import { Row, Section, Segmented, Text, Toggle } from '@/ui';
@@ -34,6 +35,7 @@ export default function SettingsScreen() {
     ]);
   };
 
+  const lenses = { back: useLenses('back'), front: useLenses('front') };
   const camera = draft.camera[draft.camera.position];
   const cameraFps = IS_EXPO_GO ? EXPO_GO_CAMERA_FPS : (camera.preset?.fps ?? null);
 
@@ -60,8 +62,22 @@ export default function SettingsScreen() {
         contentInsetAdjustmentBehavior="automatic"
       >
         <RecordingSection draft={draft} edit={edit} cameraFps={cameraFps} />
-        <CameraSection position="back" draft={draft} edit={edit} lensLabel={lensLabel(draft, 'back')} />
-        <CameraSection position="front" draft={draft} edit={edit} lensLabel={lensLabel(draft, 'front')} />
+        <CameraSection
+          position="back"
+          draft={draft}
+          edit={edit}
+          lensLabel={lensLabel(lenses.back, draft, 'back')}
+          onPickLens={() => router.push({ pathname: '/settings/lens', params: { position: 'back' } })}
+          onPickPreset={() => router.push({ pathname: '/settings/preset', params: { position: 'back' } })}
+        />
+        <CameraSection
+          position="front"
+          draft={draft}
+          edit={edit}
+          lensLabel={lensLabel(lenses.front, draft, 'front')}
+          onPickLens={() => router.push({ pathname: '/settings/lens', params: { position: 'front' } })}
+          onPickPreset={() => router.push({ pathname: '/settings/preset', params: { position: 'front' } })}
+        />
 
         <Section
           title="Final video"
@@ -201,9 +217,11 @@ function StorageSection({
   );
 }
 
-function lensLabel(draft: Settings, position: 'back' | 'front'): string {
+function lensLabel(lenses: Lens[], draft: Settings, position: 'back' | 'front'): string {
   if (IS_EXPO_GO) return position === 'back' ? 'Back camera' : 'Front camera';
-  return draft.camera[position].lensId ? 'Chosen lens' : 'Standard (1×)';
+  const id = draft.camera[position].lensId;
+  const lens = lenses.find((l) => (id ? l.id === id : l.isDefault));
+  return lens?.name ?? (position === 'back' ? 'Wide (1×)' : 'Front camera');
 }
 
 function explainGuidedAccess() {

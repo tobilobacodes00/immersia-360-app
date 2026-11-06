@@ -51,7 +51,7 @@ export default function Home() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Start the booth"
-          disabled
+          onPress={() => router.push('/capture')}
           style={({ pressed }) => [styles.capture, pressed && styles.capturePressed]}
         >
           <Camera size={34} color={colors.text} strokeWidth={1.75} />

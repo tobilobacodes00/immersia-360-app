@@ -36,6 +36,10 @@ export default function RootLayout() {
           <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
             <Stack.Screen name="index" />
             <Stack.Screen name="settings" options={{ presentation: 'modal' }} />
+            <Stack.Screen
+              name="capture"
+              options={{ presentation: 'fullScreenModal', gestureEnabled: false, animation: 'fade' }}
+            />
           </Stack>
         </SQLiteProvider>
       </ThemeProvider>

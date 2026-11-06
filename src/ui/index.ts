@@ -1,6 +1,8 @@
 export { Button } from './Button';
+export { ChoiceRow } from './ChoiceRow';
 export { IconButton } from './IconButton';
 export { Row, Section } from './List';
+export { ProgressRing } from './ProgressRing';
 export { Segmented, type SegmentOption } from './Segmented';
 export { Stepper } from './Stepper';
 export { Text, type TextTone, type TextVariant } from './Text';
