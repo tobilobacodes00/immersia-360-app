@@ -197,14 +197,16 @@ public final class Composer: @unchecked Sendable {
   }
 
   /// Decodes the frames whose index (time × fps, rounded) falls in `range` and hands them over in order.
-  /// The reader's window is offset by half a frame so the boundaries fall between frames, never on one.
+  /// A reader given a time range hands back the frame that straddles the range's start with its time clamped to
+  /// that start, which would pass for the window's first frame. So the window opens a quarter frame early (the
+  /// real first frame comes back untouched) and any sample whose time is off the 1/fps grid is ignored.
   private func readFrames(
     track: AVAssetTrack, asset: AVAsset, range: Range<Int>, fps: Int32, copies: Bool = false,
     body: (Int, CVPixelBuffer) async throws -> Void
   ) async throws {
     let reader = try AVAssetReader(asset: asset)
-    let start = (Double(range.lowerBound) - 0.5) / Double(fps)
-    let end = (Double(range.upperBound) - 0.5) / Double(fps)
+    let start = (Double(range.lowerBound) - 0.25) / Double(fps)
+    let end = (Double(range.upperBound) - 0.25) / Double(fps)
     reader.timeRange = CMTimeRange(
       start: CMTime(seconds: max(0, start), preferredTimescale: 600 * fps),
       end: CMTime(seconds: end, preferredTimescale: 600 * fps))
@@ -222,7 +224,9 @@ public final class Composer: @unchecked Sendable {
     while let sample = output.copyNextSampleBuffer() {
       try checkCancelled()
       guard let buffer = CMSampleBufferGetImageBuffer(sample) else { continue }
-      let index = Int((CMSampleBufferGetPresentationTimeStamp(sample).seconds * Double(fps)).rounded())
+      let position = CMSampleBufferGetPresentationTimeStamp(sample).seconds * Double(fps)
+      let index = Int(position.rounded())
+      guard abs(position - Double(index)) < 0.05 else { continue }
       if range.contains(index) { try await body(index, buffer) }
     }
     if reader.status == .failed { throw ComposeError.readerFailed(describe(reader.error, stage: "reading")) }
