@@ -8,12 +8,15 @@ import type { ComposeRequest, ComposeResult, Composer } from './types';
 
 export type { ComposeRequest, ComposeResult, Composer } from './types';
 
+export type ThermalState = 'nominal' | 'fair' | 'serious' | 'critical';
+
 type ProgressEvent = { jobId: string; fraction: number };
 type Events = { onProgress: (event: ProgressEvent) => void };
 
 type NativeComposer = {
   compose(request: ComposeRequest): Promise<{ durationS: number; bytes: number }>;
   cancel(jobId: string): void;
+  thermalState(): ThermalState;
   addListener: EventEmitter<Events>['addListener'];
 };
 
@@ -41,3 +44,8 @@ const nativeComposer = (engine: NativeComposer): Composer => ({
 });
 
 export const composer: Composer = native ? nativeComposer(native) : standInComposer;
+
+/** How hot the phone is. Always "nominal" where the native module is missing (Expo Go, Android for now). */
+export function thermalState(): ThermalState {
+  return native?.thermalState() ?? 'nominal';
+}

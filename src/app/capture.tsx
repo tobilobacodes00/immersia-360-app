@@ -16,6 +16,7 @@ import { discardClip, saveTake } from '@/data/takes';
 import { buildPlan, slowFactor } from '@/domain/timeline';
 import { canAdjustCamera, captureReducer, initialCapture } from '@/features/capture/machine';
 import { videoQueue } from '@/jobs/create-video';
+import { thermalState, type ThermalState } from '@/platform/composer';
 import {
   BoothCamera,
   useLenses,
@@ -54,6 +55,7 @@ export default function CaptureScreen() {
   const [freeBytes] = useState(() => Paths.availableDiskSpace);
   const [appActive, setAppActive] = useState(AppState.currentState === 'active');
   const focused = useIsFocused();
+  const [heat, setHeat] = useState<ThermalState>(thermalState);
 
   const camera = useRef<BoothCameraHandle>(null);
   const discardNext = useRef(false);
@@ -66,6 +68,12 @@ export default function CaptureScreen() {
   useEffect(() => {
     if (permission && !permission.granted && permission.canAskAgain) void requestPermission();
   }, [permission, requestPermission]);
+
+  // ---- 240 fps recording heats phones: warn before iOS starts throttling the camera ----
+  useEffect(() => {
+    const timer = setInterval(() => setHeat(thermalState()), 15_000);
+    return () => clearInterval(timer);
+  }, []);
 
   // ---- The app leaving the foreground stops a take and keeps what was recorded ----
   useEffect(() => {
@@ -293,6 +301,16 @@ export default function CaptureScreen() {
               {freeBytes < BLOCK_BELOW_BYTES
                 ? 'This phone is almost full. Recording is paused until space is freed.'
                 : 'This phone is low on space. Delete old videos in the Gallery soon.'}
+            </Text>
+          </View>
+        )}
+
+        {(heat === 'serious' || heat === 'critical') && (
+          <View style={styles.banner}>
+            <Text variant="footnote" tone="overlay" align="center">
+              {heat === 'critical'
+                ? 'The phone is too hot. Stop recording and let it cool, out of direct light.'
+                : 'The phone is getting hot. Give it a short break between guests if you can.'}
             </Text>
           </View>
         )}

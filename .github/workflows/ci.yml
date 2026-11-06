@@ -29,3 +29,16 @@ jobs:
       - run: npm test -- --ci
       - name: Expo doctor
         run: npx expo-doctor
+
+  engine:
+    name: Video engine (Swift, macOS)
+    runs-on: macos-15
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: modules/immersia-composer/ios
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift --version
+      # Builds Core/ as a Swift package and runs its tests against synthetic clips (see Tests/).
+      - run: swift test
