@@ -18,6 +18,7 @@ import { discardClip, resolveFile, saveTake } from '@/data/takes';
 import { buildPlan, slowFactor } from '@/domain/timeline';
 import { canAdjustCamera, captureReducer, initialCapture } from '@/features/capture/machine';
 import { videoQueue } from '@/jobs/create-video';
+import { sendBoothEvent } from '@/jobs/hub';
 import { thermalState, type ThermalState } from '@/platform/composer';
 import {
   BoothCamera,
@@ -153,6 +154,23 @@ export default function CaptureScreen() {
       clearTimeout(safety);
     };
   }, [startedAt]);
+
+  // ---- Tell paired Displays: counting down / recording, then making the video, or back to idle ----
+  const showing =
+    state.phase === 'countdown' || state.phase === 'starting'
+      ? 'recording'
+      : state.phase === 'saved'
+        ? 'creating'
+        : state.phase === 'idle' || state.phase === 'error'
+          ? 'idle'
+          : null;
+  useEffect(() => {
+    if (showing === 'recording') {
+      const r = getSettings().recording;
+      sendBoothEvent({ type: 'booth.recording', countdownS: r.countdownS, recordS: r.recordS });
+    } else if (showing === 'creating') sendBoothEvent({ type: 'booth.creating' });
+    else if (showing === 'idle') sendBoothEvent({ type: 'booth.idle' });
+  }, [showing]);
 
   // ---- No new video is started while the camera records ----
   const busy = state.phase === 'starting' || state.phase === 'recording' || state.phase === 'stopping';

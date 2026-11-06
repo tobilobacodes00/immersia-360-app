@@ -6,6 +6,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { DATABASE_NAME, migrate } from '@/data/db';
 import { videoQueue } from '@/jobs/create-video';
+import { startAlbumSync } from '@/jobs/hub';
+import { uploadQueue } from '@/jobs/uploads';
 import { colors } from '@/theme';
 
 void SplashScreen.preventAutoHideAsync();
@@ -38,6 +40,12 @@ export default function RootLayout() {
             <Stack.Screen name="index" />
             <Stack.Screen name="settings" options={{ presentation: 'modal' }} />
             <Stack.Screen name="overlays" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="sharing" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="pair" options={{ presentation: 'modal' }} />
+            <Stack.Screen
+              name="welcome"
+              options={{ presentation: 'fullScreenModal', gestureEnabled: false }}
+            />
             <Stack.Screen name="gallery" options={{ presentation: 'fullScreenModal' }} />
             <Stack.Screen
               name="albums"
@@ -79,6 +87,8 @@ function AppReady() {
   useEffect(() => {
     void SplashScreen.hideAsync();
     void videoQueue.start(db);
+    void uploadQueue.start(db);
+    return startAlbumSync(db);
   }, [db]);
   return null;
 }

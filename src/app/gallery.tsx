@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { ChevronDown, Ellipsis, Images, X } from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, FlatList, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { deleteAlbum, useCurrentAlbum } from '@/data/albums';
@@ -22,9 +22,13 @@ import {
 import { formatBytes } from '@/domain/format';
 import { TakeRow, formatTakeDate, type GalleryTab } from '@/features/gallery/TakeRow';
 import { CANCELLED, videoQueue } from '@/jobs/create-video';
+import { uploadQueue } from '@/jobs/uploads';
+import { useSharingConfig } from '@/data/sharing-config';
+import { useUploads } from '@/data/uploads';
+import { uploadStatusText } from '@/features/sharing/uploadStatus';
 import { saveVideoToPhotos, shareVideo } from '@/platform/share';
 import { colors, space } from '@/theme';
-import { Button, IconButton, Segmented, Text } from '@/ui';
+import { Button, IconButton, QrCard, Segmented, Text } from '@/ui';
 import { confirmDestructive, showMenu } from '@/ui/menu';
 
 const SORT_KEY = 'gallery.sort';
@@ -36,6 +40,11 @@ export default function GalleryScreen() {
   const album = useCurrentAlbum();
   const albumId = album?.id ?? DEFAULT_ALBUM_ID;
   const takes = useTakes(albumId);
+  const sharingConfig = useSharingConfig();
+  const uploadList = useUploads();
+  const uploads = useMemo(() => new Map((uploadList ?? []).map((u) => [u.takeId, u])), [uploadList]);
+  const [qrFor, setQrFor] = useState<string | null>(null);
+  const qrUpload = qrFor ? uploads.get(qrFor) : undefined;
 
   const [tab, setTab] = useState<GalleryTab>('videos');
   const [sort, setSortState] = useState<Sort>(() =>
@@ -92,6 +101,14 @@ export default function GalleryScreen() {
       if (tab === 'videos') {
         showMenu(date, [
           { label: 'Play', hidden: take.status !== 'ready', onPress: () => open(take) },
+          {
+            label: uploads.get(take.id)?.url ? 'Show QR' : 'Get QR',
+            hidden: take.status !== 'ready' || !sharingConfig,
+            onPress: () => {
+              if (!uploads.get(take.id)) void uploadQueue.share(take.id);
+              setQrFor(take.id);
+            },
+          },
           { label: 'Share…', hidden: !uri, onPress: () => uri && void shareVideo(uri) },
           { label: 'Save to Photos', hidden: !uri, onPress: () => uri && void saveVideoToPhotos(uri) },
           {
@@ -109,15 +126,34 @@ export default function GalleryScreen() {
             label: 'Delete video',
             destructive: true,
             hidden: take.status === 'creating',
-            onPress: () =>
-              confirmDestructive(
-                'Delete this video?',
-                take.originalPath
-                  ? 'The video is deleted. Its original clip stays in Originals, so it can be made again.'
-                  : 'The video is deleted. Its original was not kept, so it cannot be made again.',
-                'Delete',
-                () => void deleteVideo(db, take),
-              ),
+            onPress: () => {
+              const message = take.originalPath
+                ? 'The video is deleted. Its original clip stays in Originals, so it can be made again.'
+                : 'The video is deleted. Its original was not kept, so it cannot be made again.';
+              if (!uploads.get(take.id)?.shareId) {
+                confirmDestructive('Delete this video?', message, 'Delete', () => void deleteVideo(db, take));
+                return;
+              }
+              // Shared: the guest link can stay (until it expires) or go with the video.
+              Alert.alert('Delete this video?', `${message} It also has a guest link.`, [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Delete from phone', onPress: () => void deleteVideo(db, take) },
+                {
+                  text: 'Delete from phone and the link',
+                  style: 'destructive',
+                  onPress: () =>
+                    void uploadQueue
+                      .unshare(take.id)
+                      .catch((e: unknown) =>
+                        Alert.alert(
+                          'The link could not be deleted',
+                          e instanceof Error ? e.message : String(e),
+                        ),
+                      )
+                      .then(() => deleteVideo(db, take)),
+                },
+              ]);
+            },
           },
         ]);
       } else {
@@ -148,7 +184,7 @@ export default function GalleryScreen() {
         ]);
       }
     },
-    [tab, db, open, fileOf],
+    [tab, db, open, fileOf, uploads, sharingConfig],
   );
 
   // ---- Whole album ----
@@ -264,6 +300,7 @@ export default function GalleryScreen() {
         renderItem={({ item }) => (
           <TakeRow
             take={item}
+            upload={uploads.get(item.id)}
             tab={tab}
             selecting={selecting}
             selected={selected.has(item.id)}
@@ -286,6 +323,17 @@ export default function GalleryScreen() {
         }
         contentContainerStyle={list.length === 0 && styles.emptyContainer}
       />
+
+      <Modal visible={qrFor !== null} transparent animationType="fade" onRequestClose={() => setQrFor(null)}>
+        <SafeAreaView style={styles.qrModal}>
+          {qrUpload?.url ? (
+            <QrCard url={qrUpload.url} status={uploadStatusText(qrUpload)} size={240} />
+          ) : (
+            <Text align="center">{qrUpload?.error ?? 'Getting the link…'}</Text>
+          )}
+          <Button label="Close" kind="secondary" onPress={() => setQrFor(null)} />
+        </SafeAreaView>
+      </Modal>
 
       {selecting && (
         <View style={styles.selectBar}>
@@ -337,6 +385,13 @@ const styles = StyleSheet.create({
   },
   empty: { alignItems: 'center', gap: space.md, padding: space.xxl },
   emptyContainer: { flexGrow: 1, justifyContent: 'center' },
+  qrModal: {
+    flex: 1,
+    backgroundColor: colors.scrim,
+    justifyContent: 'center',
+    padding: space.xl,
+    gap: space.lg,
+  },
   selectBar: {
     flexDirection: 'row',
     justifyContent: 'space-around',

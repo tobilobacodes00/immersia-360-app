@@ -2,4 +2,4 @@
 const { defineConfig } = require('eslint/config');
 const expoConfig = require('eslint-config-expo/flat');
 
-module.exports = defineConfig([expoConfig, { ignores: ['dist/*', 'worker/*', 'native/*'] }]);
+module.exports = defineConfig([expoConfig, { ignores: ['dist/*', 'worker/*', 'native/*', 'scripts/*'] }]);

@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { config } from '@/config';
 import { useOverlays, useTracks } from '@/data/look';
 import { useSettings } from '@/data/settings-store';
+import { useSharingConfig } from '@/data/sharing-config';
 import { formatBytes } from '@/domain/format';
 import { IDLE_RETURN_CHOICES, type Settings } from '@/domain/settings';
 import { CameraSection } from '@/features/settings/CameraSection';
@@ -24,6 +25,7 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { draft, edit, dirty, save } = useSettingsDraft();
   const live = useSettings();
+  const sharingConfig = useSharingConfig();
   const overlays = useOverlays();
   const tracks = useTracks();
 
@@ -106,8 +108,12 @@ export default function SettingsScreen() {
         </Section>
 
         <Section title="Sharing">
-          <Row label="QR sharing" value={draft.sharing.enabled ? 'Enabled' : 'Disabled'} disabled />
-          <Row label="Display" value="Not paired" disabled />
+          <Row
+            label="QR sharing"
+            value={live.sharing.enabled && sharingConfig ? 'Enabled' : 'Disabled'}
+            onPress={() => router.push('/settings/sharing')}
+          />
+          <Row label="Display" value="Pair in QR sharing" onPress={() => router.push('/settings/sharing')} />
         </Section>
 
         {/* The library saves as soon as something is picked, so these rows show the live choice, not the draft. */}
@@ -155,8 +161,14 @@ export default function SettingsScreen() {
           {config.tutorialsUrl && (
             <Row label="Video tutorials" onPress={() => void Linking.openURL(config.tutorialsUrl!)} />
           )}
-          <Row label="Privacy Policy" disabled />
-          <Row label="Terms of Use" disabled />
+          <Row
+            label="Privacy Policy"
+            onPress={() => router.push({ pathname: '/settings/legal', params: { doc: 'privacy' } })}
+          />
+          <Row
+            label="Terms of Use"
+            onPress={() => router.push({ pathname: '/settings/legal', params: { doc: 'terms' } })}
+          />
           {config.supportEmail && (
             <Row
               label="Contact"
