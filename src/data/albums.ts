@@ -1,4 +1,5 @@
 import { randomUUID } from 'expo-crypto';
+import { Directory, Paths } from 'expo-file-system';
 import Storage from 'expo-sqlite/kv-store';
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { useSyncExternalStore } from 'react';
@@ -94,4 +95,21 @@ export function useCurrentAlbum(): Album | undefined {
   const albums = useAlbums();
   if (!albums) return undefined;
   return albums.find((a) => a.id === id) ?? albums.find((a) => a.id === DEFAULT_ALBUM_ID);
+}
+
+/** Deletes an album with every take in it, files included. The Default album cannot be deleted. */
+export async function deleteAlbum(db: SQLiteDatabase, id: string): Promise<void> {
+  if (id === DEFAULT_ALBUM_ID) throw new Error('The Default album cannot be deleted.');
+  const takes = await db.getAllAsync<{ id: string }>('SELECT id FROM takes WHERE album_id = ?', id);
+  for (const take of takes) {
+    try {
+      const folder = new Directory(Paths.document, `takes/${take.id}`);
+      if (folder.exists) folder.delete();
+    } catch {
+      // keep going: the rows are removed below either way
+    }
+  }
+  await db.runAsync('DELETE FROM takes WHERE album_id = ?', id);
+  await db.runAsync('DELETE FROM albums WHERE id = ?', id);
+  if (getCurrentAlbumId() === id) setCurrentAlbumId(DEFAULT_ALBUM_ID);
 }

@@ -37,6 +37,19 @@ export default function RootLayout() {
           <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
             <Stack.Screen name="index" />
             <Stack.Screen name="settings" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="gallery" options={{ presentation: 'fullScreenModal' }} />
+            <Stack.Screen
+              name="albums"
+              options={{
+                presentation: 'formSheet',
+                sheetAllowedDetents: [0.6, 1],
+                sheetGrabberVisible: true,
+              }}
+            />
+            <Stack.Screen
+              name="player/[id]"
+              options={{ presentation: 'fullScreenModal', animation: 'fade' }}
+            />
             <Stack.Screen
               name="creating/[id]"
               options={{ presentation: 'fullScreenModal', gestureEnabled: false, animation: 'fade' }}

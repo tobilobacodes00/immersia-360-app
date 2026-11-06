@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useCurrentAlbum } from '@/data/albums';
 import { useSettings } from '@/data/settings-store';
+import { useVideosInProgress } from '@/data/takes';
 import { formatBytes } from '@/domain/format';
 import { presetLabel } from '@/features/settings/CameraSection';
 import { IS_EXPO_GO } from '@/platform/runtime';
@@ -21,6 +22,7 @@ export default function Home() {
   const router = useRouter();
   const settings = useSettings();
   const album = useCurrentAlbum();
+  const busy = useVideosInProgress();
   const [free, setFree] = useState(() => Paths.availableDiskSpace);
   useFocusEffect(useCallback(() => setFree(Paths.availableDiskSpace), []));
 
@@ -32,12 +34,17 @@ export default function Home() {
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
       <View style={styles.top}>
-        <View style={styles.albumChip} accessibilityLabel={`Album: ${album?.name ?? 'Default'}`}>
+        <Pressable
+          style={({ pressed }) => [styles.albumChip, pressed && styles.chipPressed]}
+          onPress={() => router.push('/albums')}
+          accessibilityRole="button"
+          accessibilityLabel={`Album: ${album?.name ?? 'Default'}. Change album`}
+        >
           <Text variant="callout" numberOfLines={1} style={styles.albumName}>
             {album?.name ?? ' '}
           </Text>
           <ChevronDown size={16} color={colors.textMuted} />
-        </View>
+        </Pressable>
         <Text
           variant="footnote"
           tone={free < LOW_SPACE_BYTES ? 'danger' : 'faint'}
@@ -76,8 +83,8 @@ export default function Home() {
           icon={Images}
           label="Gallery"
           showLabel
-          disabled
-          onPress={() => {}}
+          badge={busy}
+          onPress={() => router.push('/gallery')}
           style={styles.barItem}
         />
         <IconButton
@@ -122,6 +129,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   albumName: { flexShrink: 1 },
+  chipPressed: { backgroundColor: colors.surfacePressed },
   centre: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: space.xs },
   capture: {
     width: CAPTURE_SIZE,

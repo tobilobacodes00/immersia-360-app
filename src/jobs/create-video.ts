@@ -4,13 +4,13 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 
 import { getSettings } from '@/data/settings-store';
-import { getTake, resolveFile, takeFolder, type Take } from '@/data/takes';
+import { getTake, NOT_MADE, resolveFile, takeFolder, type Take } from '@/data/takes';
 import { thumbnailTimeS } from '@/domain/timeline';
 import { composer, type ComposeRequest } from '@/platform/composer';
 import { saveVideoToPhotos } from '@/platform/share';
 
 /** Error stored on a take whose video the operator cancelled: shown as "not made yet", not as a failure. */
-export const CANCELLED = 'cancelled';
+export const CANCELLED = NOT_MADE;
 
 const OUTPUT = {
   '1080p': { width: 1080, height: 1920, bitrate: 12e6 },
@@ -119,6 +119,8 @@ class VideoQueue {
         result.durationS,
       );
 
+      if (take.videoPath && take.videoPath !== videoRelative) deleteQuietly(take.videoPath);
+      if (take.thumbPath && take.thumbPath !== thumbRelative) deleteQuietly(take.thumbPath);
       await db.runAsync(
         `UPDATE takes SET status = 'ready', progress = 1, error = NULL, video_path = ?, video_bytes = ?, thumb_path = ?
          WHERE id = ?`,
@@ -163,7 +165,8 @@ function buildRequest(take: Take, jobId: string): ComposeRequest {
   return {
     jobId,
     inputPath: toPath(resolveFile(take.originalPath!).uri),
-    outputPath: toPath(new File(Paths.document, `${takeFolder(take.id)}/video.mp4`).uri),
+    // A new name each time: when a video is made again, the old one stays until the new one is done.
+    outputPath: toPath(new File(Paths.document, `${takeFolder(take.id)}/video-${Date.now()}.mp4`).uri),
     segments: recipe.plan.segments,
     reverse: recipe.plan.reverse,
     outputFps: recipe.plan.outputFps,
@@ -191,9 +194,9 @@ async function makeThumbnail(
       time: Math.round(time * 1000),
       quality: 0.7,
     });
-    const relative = `${takeFolder(takeId)}/thumb.jpg`;
+    // A new name each time so image caches never show a thumbnail of the previous video.
+    const relative = `${takeFolder(takeId)}/thumb-${Date.now()}.jpg`;
     const destination = new File(Paths.document, relative);
-    if (destination.exists) destination.delete();
     await new File(uri).move(destination);
     return relative;
   } catch {
