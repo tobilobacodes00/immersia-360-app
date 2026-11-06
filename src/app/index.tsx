@@ -21,6 +21,8 @@ const CAPTURE_SIZE = 116;
 /** Below this, the home screen warns about space before anyone starts recording. */
 const LOW_SPACE_BYTES = 2e9;
 
+let welcomeShown = false;
+
 export default function Home() {
   const router = useRouter();
   const settings = useSettings();
@@ -32,6 +34,13 @@ export default function Home() {
   const displayConnected = useDisplayConnected(sharingOn ? sharingConfig : null);
   const [free, setFree] = useState(() => Paths.availableDiskSpace);
   useFocusEffect(useCallback(() => setFree(Paths.availableDiskSpace), []));
+
+  // First launch: the three-card intro, once.
+  useEffect(() => {
+    if (settings.onboardingDone || welcomeShown) return;
+    welcomeShown = true; // once per launch, even when effects run twice in development
+    router.push('/welcome');
+  }, [settings.onboardingDone, router]);
 
   const camera = settings.camera[settings.camera.position];
   const cameraLine = IS_EXPO_GO

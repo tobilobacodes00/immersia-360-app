@@ -22,7 +22,6 @@ export type Upload = {
   nextAttemptAt: number;
 };
 
-
 export const WAITING_FOR_WIFI = 'Waiting for Wi-Fi';
 
 type Links = { videoUploadUrl: string; thumbUploadUrl: string };

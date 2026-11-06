@@ -161,8 +161,14 @@ export default function SettingsScreen() {
           {config.tutorialsUrl && (
             <Row label="Video tutorials" onPress={() => void Linking.openURL(config.tutorialsUrl!)} />
           )}
-          <Row label="Privacy Policy" disabled />
-          <Row label="Terms of Use" disabled />
+          <Row
+            label="Privacy Policy"
+            onPress={() => router.push({ pathname: '/settings/legal', params: { doc: 'privacy' } })}
+          />
+          <Row
+            label="Terms of Use"
+            onPress={() => router.push({ pathname: '/settings/legal', params: { doc: 'terms' } })}
+          />
           {config.supportEmail && (
             <Row
               label="Contact"

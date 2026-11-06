@@ -20,6 +20,7 @@ export default function SettingsLayout() {
         <Stack.Screen name="preset" options={{ title: 'Preset' }} />
         <Stack.Screen name="overlays" options={{ title: 'Overlays' }} />
         <Stack.Screen name="sharing" options={{ title: 'QR sharing' }} />
+        <Stack.Screen name="legal" options={{ title: 'Privacy Policy' }} />
       </Stack>
     </SettingsDraftProvider>
   );
