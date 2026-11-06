@@ -91,8 +91,7 @@ export default function Home() {
           icon={Layers}
           label="Overlays"
           showLabel
-          disabled
-          onPress={() => {}}
+          onPress={() => router.push('/overlays')}
           style={styles.barItem}
         />
         <IconButton

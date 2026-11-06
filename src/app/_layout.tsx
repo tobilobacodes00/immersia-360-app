@@ -37,6 +37,7 @@ export default function RootLayout() {
           <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
             <Stack.Screen name="index" />
             <Stack.Screen name="settings" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="overlays" options={{ presentation: 'modal' }} />
             <Stack.Screen name="gallery" options={{ presentation: 'fullScreenModal' }} />
             <Stack.Screen
               name="albums"

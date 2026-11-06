@@ -6,6 +6,8 @@ import { Alert, Linking, Pressable, ScrollView, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { config } from '@/config';
+import { useOverlays, useTracks } from '@/data/look';
+import { useSettings } from '@/data/settings-store';
 import { formatBytes } from '@/domain/format';
 import { IDLE_RETURN_CHOICES, type Settings } from '@/domain/settings';
 import { CameraSection } from '@/features/settings/CameraSection';
@@ -21,6 +23,9 @@ export default function SettingsScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { draft, edit, dirty, save } = useSettingsDraft();
+  const live = useSettings();
+  const overlays = useOverlays();
+  const tracks = useTracks();
 
   // While there are unsaved changes the sheet cannot be swiped away; Cancel asks first instead.
   useEffect(() => {
@@ -105,9 +110,18 @@ export default function SettingsScreen() {
           <Row label="Display" value="Not paired" disabled />
         </Section>
 
+        {/* The library saves as soon as something is picked, so these rows show the live choice, not the draft. */}
         <Section title="Look">
-          <Row label="Overlays" value={draft.look.overlayId ? 'On' : 'None'} disabled />
-          <Row label="Audio files" value={draft.look.trackId ? 'On' : 'None'} disabled />
+          <Row
+            label="Overlays"
+            value={overlays?.find((o) => o.id === live.look.overlayId)?.name ?? 'None'}
+            onPress={() => router.push({ pathname: '/settings/overlays', params: { tab: 'frames' } })}
+          />
+          <Row
+            label="Audio files"
+            value={tracks?.find((t) => t.id === live.look.trackId)?.name ?? 'None'}
+            onPress={() => router.push({ pathname: '/settings/overlays', params: { tab: 'music' } })}
+          />
         </Section>
 
         <StorageSection draft={draft} edit={edit} />

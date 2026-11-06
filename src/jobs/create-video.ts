@@ -3,6 +3,7 @@ import { File, Paths } from 'expo-file-system';
 import type { SQLiteDatabase } from 'expo-sqlite';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 
+import { lookFiles } from '@/data/look';
 import { getSettings } from '@/data/settings-store';
 import { getTake, NOT_MADE, resolveFile, takeFolder, type Take } from '@/data/takes';
 import { thumbnailTimeS } from '@/domain/timeline';
@@ -99,7 +100,8 @@ class VideoQueue {
 
     let lastWrite = 0;
     try {
-      const request = buildRequest(take, jobId);
+      const look = await lookFiles(db, take.recipe.overlayId, take.recipe.trackId);
+      const request = buildRequest(take, jobId, look);
       const result = await composer.compose(request, (fraction) => {
         const now = Date.now();
         if (now - lastWrite < PROGRESS_WRITE_MS && fraction < 1) return;
@@ -159,7 +161,11 @@ class VideoQueue {
 
 export const videoQueue = new VideoQueue();
 
-function buildRequest(take: Take, jobId: string): ComposeRequest {
+function buildRequest(
+  take: Take,
+  jobId: string,
+  look: { overlayUri: string | null; audioUri: string | null; audioStartS: number },
+): ComposeRequest {
   const { recipe } = take;
   const out = OUTPUT[recipe.outputSize];
   return {
@@ -173,10 +179,9 @@ function buildRequest(take: Take, jobId: string): ComposeRequest {
     width: out.width,
     height: out.height,
     bitrate: out.bitrate,
-    // Frames and music are resolved from their libraries once those exist (overlays milestone).
-    overlayPath: null,
-    audioPath: null,
-    audioStartS: 0,
+    overlayPath: look.overlayUri ? toPath(look.overlayUri) : null,
+    audioPath: look.audioUri ? toPath(look.audioUri) : null,
+    audioStartS: look.audioStartS,
     audioFadeOutS: 1,
     mirror: recipe.mirror,
   };
