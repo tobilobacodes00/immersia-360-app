@@ -16,6 +16,8 @@ export default function SettingsLayout() {
         }}
       >
         <Stack.Screen name="index" options={{ title: 'Settings' }} />
+        <Stack.Screen name="lens" options={{ title: 'Lens' }} />
+        <Stack.Screen name="preset" options={{ title: 'Preset' }} />
       </Stack>
     </SettingsDraftProvider>
   );

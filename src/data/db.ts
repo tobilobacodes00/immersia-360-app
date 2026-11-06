@@ -30,7 +30,10 @@ const MIGRATIONS: ((db: SQLiteDatabase) => Promise<void>)[] = [
         height INTEGER NOT NULL,
         fps REAL NOT NULL,
         duration_s REAL NOT NULL,
-        plan_json TEXT NOT NULL,
+        -- How to make the video (segment plan, frame, music, size), fixed when the take is recorded so a
+        -- retry makes the same video even if the settings changed since. JSON, see src/data/takes.ts.
+        recipe_json TEXT NOT NULL,
+        -- Paths are relative to the app's Documents directory, which iOS moves between app updates.
         original_path TEXT,
         original_bytes INTEGER,
         video_path TEXT,
